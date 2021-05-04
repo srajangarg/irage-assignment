@@ -33,7 +33,7 @@ class OrderStatus:
 class OrderTimeline:
     # class to store the status of one order over it's life-cycle
     def __init__(self, order_tbt_df):
-        # an order's lifecycle is stored as a sorteddict of timestamp -> status
+        # an order's lifecycle is stored as a sorteddict of timestamp -> OrderStatus
         self.time_status_map = SortedDict({0 : OrderStatus()})
 
         # iterating over the events involving this order
@@ -61,7 +61,7 @@ class OrderManager:
 
     # uses the tick-by-tick data to populate each order's lifecycle
     def populate_order_timelines(self):
-        # a hashmap to store each order and it's respective timeline
+        # all the orders are stored as a dict of exch_id -> OrderTimeline
         self.order_timeline_map = {}
         for exch_id in self.exch_ids:
             # print(exch_id)
@@ -73,17 +73,17 @@ class OrderManager:
 
     # returns all the active orders we are managing at a given timestamp
     def get_active_orders(self, timestamp):
-        # iterate over each exch_id and add it to the list of orders
+        # iterate over each exch_id and add it to the list of active orders
         # based on its `active` status
         active_orders = []
         for exch_id in self.exch_ids:
             order_status = self.order_timeline_map[exch_id].status(timestamp)
             if order_status.active():
                 active_orders.append({
-                    "timestamp": timestamp,
-                    "price": order_status.price,
-                    "qty": order_status.qty,
-                    "side": order_status.side,
+                    "timestamp":   timestamp,
+                    "price":       order_status.price,
+                    "qty":         order_status.qty,
+                    "side":        order_status.side,
                     "security_id": order_status.security_id,
                 })
 
