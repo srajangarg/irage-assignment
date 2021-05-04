@@ -1,4 +1,4 @@
-./*.pynb
-./*.csv
-./tbt_data_UCB/orders_exch_ids.csv
-./tbt_data_UCB/tbt_data_UCB.csv
+*.ipynb
+output.csv
+tbt_data_UCB/orders_exch_ids.csv
+tbt_data_UCB/tbt_data_UCB.csv
