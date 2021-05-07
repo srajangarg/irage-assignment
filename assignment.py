@@ -21,7 +21,7 @@ class OrderStatus:
                                update_dict['Side'], update_dict['SecurityId'])
         elif update_dict['Type'] == 'M':
             return OrderStatus(update_dict['price'], update_dict['qty'],
-                               self.side, self.security_id)
+                               update_dict['Side'], update_dict['SecurityId'])
         elif update_dict['Type'] == 'X':
             return OrderStatus(qty=0)
         elif update_dict['Type'] == 'T':
@@ -90,6 +90,7 @@ class OrderManager:
         return active_orders
 
 def get_all_orders(tbt_data_file_path, exch_ids_file_path, timestamp_file_path):
+
     tbt        = pd.read_csv(tbt_data_file_path)
     exch_ids   = pd.read_csv(exch_ids_file_path)
     timestamps = pd.read_csv(timestamp_file_path, header=None)[0]
