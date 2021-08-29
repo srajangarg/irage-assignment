@@ -70,11 +70,38 @@ class OptionChain():
         df['fit_price'] =  py_vollib_vectorized.models.vectorized_black_scholes(df.instrument, df.futPrice, df.strike,
                                                                                 df.time_to_expiry, 0, df.fit_iv)
 
-
         vol_greeks = self.iv_model.get_greeks(df['moneyness'])
         df = pd.concat([df, vol_greeks.reset_index()], axis=1)
 
         return df
+
+class Portfolio:
+    def __init__(self, ticker, positions={}):
+        self.ticker = ticker
+        self.positions = positions
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
