@@ -53,25 +53,6 @@ class OptionChain():
     def iv_parameters(self):
         return self.iv_model.get_params()
 
-    def ivs_prices_greeks1(self, strikes_arr):
-        df = pd.DataFrame(strikes_arr, columns=['strike'])
-
-        df['futPrice']       = self.future_price()
-        df['moneyness']      = np.log(df.strike/df.futPrice)
-        df['instrument']     = np.where(df['moneyness'] > 0, 'c', 'p')
-        df['time_to_expiry'] = self.time_to_expiry()
-        df['fit_iv']         = self.iv_model.get_fit_ivs(df['moneyness'])
-
-
-        price   = py_vollib_vectorized.models.vectorized_black_scholes(df.instrument, df.futPrice, df.strike,
-                                                                                df.time_to_expiry, 0, df.fit_iv)
-        greeks  = py_vollib_vectorized.get_all_greeks(df.instrument, df.futPrice, df.strike,
-                                                      df.time_to_expiry, 0, df.fit_iv)
-        # df = pd.concat([df.reset_index(), greeks], axis=1)
-
-        return df, greeks, price
-
-
     def ivs_prices_greeks(self, strikes_arr):
         df = pd.DataFrame(strikes_arr, columns=['strike'])
 
