@@ -1,7 +1,7 @@
 import glob
 from datetime import datetime, timedelta
 from utils import create_market_state
-from utils import get_all_greeks_and_black_scholes
+from utils import get_all_greeks_and_prices
 import pandas as pd
 import numpy as np
 import py_vollib_vectorized
@@ -11,8 +11,11 @@ class Ticker():
         expiry_dt   = datetime.strptime(expiry_date, '%Y%m%d')
         expiry_str  = expiry_dt.strftime("%y%b").upper()
 
-        dfs = []
-        for f in glob.glob(f"./data/*/*_{ticker}{expiry_str}*.csv"):
+        dfs      = []
+        glob_str =  f"./data/*/*_{ticker}{expiry_str}*.csv"
+
+        print("globbing", glob_str)
+        for f in glob.glob(glob_str):
             print(f"loading data from {f}")
             expiry_time = expiry_dt + timedelta(hours=20)
             dfs.append(create_market_state(f, expiry_time))
@@ -33,7 +36,7 @@ class OptionChain():
     def fit_iv_model(self, iv_model):
         self.iv_model = iv_model
         self.iv_model.fit(self)
-
+        self.df['fit_iv'] = self.iv_model.get_fit_ivs(self.df['moneyness'])
 
     def plot(self, ax):
         if self.iv_model is None:
@@ -62,10 +65,11 @@ class OptionChain():
         df['time_to_expiry'] = self.time_to_expiry()
         df['fit_iv']         = self.iv_model.get_fit_ivs(df['moneyness'])
 
+        regular_greeks_and_price = get_all_greeks_and_prices(df)
+        vol_greeks               = self.iv_model.get_greeks(df['moneyness'])
 
-        greeks, price = get_all_greeks_and_black_scholes(df)
-
-        return df, greeks, price
+        df = pd.concat([df, regular_greeks_and_price, vol_greeks.reset_index()], axis=1)
+        return df
 
 class Portfolio:
     def __init__(self, ticker, positions={}):

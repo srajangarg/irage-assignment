@@ -18,6 +18,7 @@ def create_market_state(BCAST_FILE, expiry_time, get_greeks=True, mf_lower = -0.
     bcast_data['futPrice'] = np.where(bcast_data.instrument_type == 'XX', bcast_data.midPrice, np.nan)
     bcast_data.futPrice = bcast_data.futPrice.ffill()
     bcast_data.index = pd.to_datetime(bcast_data.index).tz_convert(None)
+    print(expiry_time)
     bcast_data['time_to_expiry'] = (expiry_time - bcast_data.index).total_seconds()/(86400*365)
     bcast_data = bcast_data[~(bcast_data.instrument_type == 'XX')]
     bcast_data = bcast_data[((bcast_data.instrument_type == 'PE') & (bcast_data.strike < bcast_data.futPrice)) | ((bcast_data.instrument_type == 'CE') & (bcast_data.strike > bcast_data.futPrice))]
@@ -40,8 +41,8 @@ def create_market_state(BCAST_FILE, expiry_time, get_greeks=True, mf_lower = -0.
 
     return curve_state
 
-
-def get_all_greeks_and_black_scholes(df):
+def get_all_greeks_and_prices(sdf):
+    df = sdf.copy()
     # s/k vector
     s_vec = df.futPrice.values
     k_vec = df.strike.values
@@ -74,22 +75,15 @@ def get_all_greeks_and_black_scholes(df):
     df['cdf_d2'] =  cdf_d2
     # use vega from wikipedia
     vega1 = s_vec*e_qt*cdf_d1*np.power(t1,0.5)
-    vega2 = k_vec*e_rt*cdf_d2*np.power(t1,0.5)
-    df['vega1'] = vega1
-    df['vega2'] = vega2
+    # vega2 = k_vec*e_rt*cdf_d2*np.power(t1,0.5)
+    df['vega'] = vega1
+    # df['vega2'] = vega2
 
-
-    # rho has negative d2 in put
     df['cdf_d2_signed'] =  np.where(df['instrument'] == 'c', cdf_d2, (1-cdf_d2))
-    rho_unsigned = df.cdf_d2_signed.values * t1*k_vec*e_rt
-    df['rho_unsigned'] = rho_unsigned
-    # rho has a negative sign outside in put formula
-    df['rho'] =  np.where(df['instrument'] == 'c', rho_unsigned, -1*rho_unsigned)
-
 
     # gamma - formula 1
-    df['gamma1'] = np.divide(e_qt*cdf_d1,s_vec*sigma*np.power(t1,0.5))
-    df['gamma2'] = np.divide(k_vec*e_rt*cdf_d2,sigma*np.power(t1,0.5)*np.power(s_vec,2))
+    df['gamma'] = np.divide(e_qt*cdf_d1,s_vec*sigma*np.power(t1,0.5))
+    # df['gamma2'] = np.divide(k_vec*e_rt*cdf_d2,sigma*np.power(t1,0.5)*np.power(s_vec,2))
 
     theta_t1 = -1 * np.divide((e_qt*s_vec*cdf_d1*sigma),(2*np.power(t1,0.5)))
 
@@ -99,8 +93,7 @@ def get_all_greeks_and_black_scholes(df):
     theta_t3 = q*s_vec*e_qt*cdf_d1_signed
     theta_t23 = theta_t2+theta_t3
 
-    df['theta_t1'] = theta_t1
-    df['theta_t23'] = theta_t23
+
     df['theta_t23_signed'] =  np.where(df['instrument'] == 'c', theta_t23, -1*theta_t23)
 
     df['theta'] = df['theta_t23_signed'].values+theta_t1
@@ -109,12 +102,7 @@ def get_all_greeks_and_black_scholes(df):
     df['price_unsigned'] = price_unsigned
     df['price_undiscounted'] =  np.where(df['instrument'] == 'c', price_unsigned, -1*price_unsigned)
 
-    df['price'] =  df.price_undiscounted.values*e_rt
-
-    df2 = df[['delta',  'gamma1','gamma2',  'theta',    'rho',  'vega1','vega2']]
-    df3 = df[['price']]
-    # df3
-
-    return df2, df3
+    df['fit_price'] =  df.price_undiscounted.values*e_rt
+    return df[['delta', 'gamma', 'theta',  'vega', 'fit_price']]
 
 
