@@ -71,6 +71,36 @@ class OptionChain():
         df = pd.concat([df, regular_greeks_and_price, vol_greeks.reset_index()], axis=1)
         return df
 
+    def k_func(self, x, h_m):
+        return np.exp(-1*(x**2)/(2*h_m))/(2*3.14)**(0.5)
+
+    def modified_mid_iv(self, k_const = 0.00000075):
+        strike_vals = self.df['strike'].values
+        moneyness_vals = self.df['moneyness'].values
+        mid_iv_vals = self.df['mid_iv'].values
+
+        h_m = k_const*(max(strike_vals)-min(strike_vals))/(len(strike_vals)-1)
+
+        mid_iv_cap = []
+        N_star = len(strike_vals)
+        for a in range(N_star):
+            
+            m_j = moneyness_vals[a]
+            
+            denom = 0.0
+            for b in range(N_star):
+                denom += self.k_func(m_j-moneyness_vals[b], h_m)
+            
+            actual_sigma = 0
+            for c in range(N_star):
+                numer = self.k_func(m_j-moneyness_vals[c], h_m)
+                actual_sigma += (numer/denom)*(mid_iv_vals[c])
+            
+            mid_iv_cap.append(actual_sigma)
+
+        return(np.array(mid_iv_cap))
+
+
 class Portfolio:
     def __init__(self, ticker, positions={}):
         self.ticker = ticker
