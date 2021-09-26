@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
+from svi_class import svi_model
 
 class BaseIVModel():
     def __init__(self):
@@ -71,5 +71,57 @@ class BasicMidIVPolynomial(BaseIVModel):
         df = pd.DataFrame(index=moneyness_arr)
         for i in range(len(self.params)):
             df[f'greek_{i}'] = np.power(moneyness_arr.values, len(self.params) - 1 - i)
+
+        return df
+
+class svi_iv_model(BaseIVModel):
+    def __init__(self):
+        self.init_msigma = np.array([0.5,0.5])
+        self.init_adc = np.array([0.03,0.33, 0.07])
+        self.svi_model_object = None
+        self.model_fitted_vol = None
+        self.time_to_expiry = None
+        # calibrated_params = [_a_star, _d_star,_c_star, m_star, sigma_star]
+        self.calibrated_params = []
+        # params = [ a, b, rho, m, sigma]
+        self.params = []
+
+
+    def fit(self, option_chain):
+        self.svi_model_object = svi_model(option_chain.df,self.init_adc,self.init_msigma, 10**-5)
+        self.model_fitted_vol= self.svi_model_object.svi_vol()
+        self.time_to_expiry = option_chain.df.iloc[0]['time_to_expiry']
+
+    def calib_params_to_params(self):
+        a = self.calibrated_params[0]
+        b = self.calibrated_params[2]/self.calibrated_params[4]
+        rho = self.calibrated_params[1]/self.calibrated_params[2]
+        self.params = [a, b, rho, self.calibrated_params[3], self.calibrated_params[4]]
+
+
+
+    def get_fit_ivs(self, moneyness_arr):
+        # calibrated_params = [_a_star, _d_star,_c_star, m_star, sigma_star]
+        self.calibrated_params = self.svi_model_object.optimization()
+        self.calib_params_to_params()
+
+        xi = np.power(moneyness_arr,-1)
+        y = (xi-self.calibrated_params[3])/self.calibrated_params[4]
+        z = np.sqrt(y**2+1)
+        omega = np.array(self.calibrated_params[0] + self.calibrated_params[1] * y + self.calibrated_params[2] * z)
+        assert np.all(omega>0)
+        sigma = np.sqrt(omega/self.time_to_expiry)
+
+        return sigma
+
+    def get_greeks(self, moneyness_arr):
+        y = np.power(moneyness_arr,-1)
+        df = pd.DataFrame(index=moneyness_arr)
+        one_array = np.ones(moneyness_arr.shape[0])
+        df['greek_0'] = np.ones(moneyness_arr.shape[0])
+        df['greek_1'] = self.params[2]*(y-self.params[3])+np.power(np.power(y-self.params[3],2)+self.params[4]**2,0.5)
+        df['greek_2'] = self.params[1]*(y-self.params[3])
+        df['greek_3'] = np.divide((self.params[3]-y),np.power(np.power(y-self.params[3],2)+self.params[4]**2,0.5)) - self.params[1]*self.params[2]
+        df['greek_4'] = np.divide(one_array*self.params[4],np.power(np.power(y-self.params[3],2)+self.params[4]**2,0.5))
 
         return df
