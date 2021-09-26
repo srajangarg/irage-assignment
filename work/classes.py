@@ -71,6 +71,9 @@ class OptionChain():
         df = pd.concat([df, regular_greeks_and_price, vol_greeks.reset_index()], axis=1)
         return df
 
+
+
+
 class Portfolio:
     def __init__(self, ticker, positions={}):
         self.ticker = ticker
