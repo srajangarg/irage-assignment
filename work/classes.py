@@ -60,8 +60,8 @@ class OptionChain():
         df = pd.DataFrame(strikes_arr, columns=['strike'])
 
         df['futPrice']       = self.future_price()
-        df['moneyness']      = np.log(df.strike/df.futPrice)
-        df['instrument']     = np.where(df['moneyness'] > 0, 'c', 'p')
+        df['moneyness']      = np.log(df.futPrice/df.strike)
+        df['instrument']     = np.where(df['moneyness'] < 0, 'c', 'p')
         df['time_to_expiry'] = self.time_to_expiry()
         df['fit_iv']         = self.iv_model.get_fit_ivs(df['moneyness'])
 
@@ -143,6 +143,10 @@ class TickerSet:
             t   = Ticker(ticker, expiry_date=expiry_date)
             oc1 = t.get_option_chain(timestamp_1)
             oc2 = t.get_option_chain(timestamp_2)
+            if len(oc1.df) < 8 or len(oc2.df) < 8:
+                print("skipped", ticker)
+                continue
+
             self.oc_pairs[ticker] = (oc1, oc2)
 
 

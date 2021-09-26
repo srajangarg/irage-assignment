@@ -31,10 +31,10 @@ def create_market_state(BCAST_FILE, expiry_time, get_greeks=True, mf_lower = -0.
     curve_state['futPrice'] = curve_state.index.get_level_values(0).map(bcast_data.futPrice.resample(RESAMPLING).last().ffill().reset_index().set_index('index').futPrice.to_dict())
 
     curve_state = curve_state.reset_index()
-    curve_state['moneyness'] = np.log(curve_state.strike/curve_state.futPrice)
+    curve_state['moneyness'] = np.log(curve_state.futPrice/curve_state.strike)
     curve_state = curve_state[(curve_state['moneyness'] > mf_lower) & (curve_state['moneyness'] < mf_upper) ]
 
-    curve_state['instrument'] = np.where(curve_state['moneyness'] > 0, 'c', 'p')
+    curve_state['instrument'] = np.where(curve_state['moneyness'] > 0, 'p', 'c')
     curve_state['bid_iv'] = py_vollib_vectorized.vectorized_implied_volatility(curve_state.bidPrice_1, curve_state.futPrice, curve_state.strike, curve_state.time_to_expiry,  0, curve_state.instrument, return_as='numpy')
     curve_state['ask_iv'] = py_vollib_vectorized.vectorized_implied_volatility(curve_state.askPrice_1, curve_state.futPrice, curve_state.strike, curve_state.time_to_expiry,  0, curve_state.instrument, return_as='numpy')
 
