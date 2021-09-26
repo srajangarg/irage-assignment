@@ -4,7 +4,7 @@ import py_vollib_vectorized
 from datetime import datetime, timedelta
 import scipy
 
-def create_market_state(BCAST_FILE, expiry_time, get_greeks=True, mf_lower = -0.2, mf_upper = 0.2, RESAMPLING = '30s'):
+def create_market_state(BCAST_FILE, expiry_time, get_greeks=True, mf_lower = -0.15, mf_upper = 0.15, RESAMPLING = '30s'):
     '''
     Creates and return Market State in a multiIndex Format
     '''
@@ -58,6 +58,8 @@ def get_all_greeks_and_prices(sdf):
     d1 = (d_sk+((r-q+np.power(sigma,2)/2)*(t1)))/(sigma*np.power(t1,0.5))
     # Calculate cdf of d1
     cdf_d1 = scipy.stats.norm.cdf(d1)
+    pdf_d1 = (np.exp(-np.power(d1, 2) / 2.0))/(np.sqrt(2*np.pi))
+
     df['cdf_d1'] = d1
     # Delta in Put is CDF(-d1)
     df['cdf_d1_signed']  = np.where(df['instrument'] == 'c', cdf_d1, (1-cdf_d1))
@@ -74,7 +76,7 @@ def get_all_greeks_and_prices(sdf):
     cdf_d2 = scipy.stats.norm.cdf(d2)
     df['cdf_d2'] =  cdf_d2
     # use vega from wikipedia
-    vega1 = s_vec*e_qt*cdf_d1*np.power(t1,0.5)
+    vega1 = s_vec*e_qt*pdf_d1*np.power(t1,0.5)
     # vega2 = k_vec*e_rt*cdf_d2*np.power(t1,0.5)
     df['vega'] = vega1
     # df['vega2'] = vega2
@@ -82,10 +84,10 @@ def get_all_greeks_and_prices(sdf):
     df['cdf_d2_signed'] =  np.where(df['instrument'] == 'c', cdf_d2, (1-cdf_d2))
 
     # gamma - formula 1
-    df['gamma'] = np.divide(e_qt*cdf_d1,s_vec*sigma*np.power(t1,0.5))
+    df['gamma'] = np.divide(e_qt*pdf_d1,s_vec*sigma*np.power(t1,0.5))
     # df['gamma2'] = np.divide(k_vec*e_rt*cdf_d2,sigma*np.power(t1,0.5)*np.power(s_vec,2))
 
-    theta_t1 = -1 * np.divide((e_qt*s_vec*cdf_d1*sigma),(2*np.power(t1,0.5)))
+    theta_t1 = -1 * np.divide((e_qt*s_vec*pdf_d1*sigma),(2*np.power(t1,0.5)))
 
     cdf_d2_signed = df['cdf_d2_signed'].values
     cdf_d1_signed = df['cdf_d1_signed'].values

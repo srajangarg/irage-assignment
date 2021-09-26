@@ -77,10 +77,32 @@ class Portfolio:
         self.positions = positions
 
 
+def result_df(oc1, oc2):
+    moneys  = np.linspace(-0.15, 0.15, num=31)
+    strikes = oc1.future_price() * np.exp(moneys)
+    res1    = oc1.ivs_prices_greeks(strikes)
+    res2    = oc2.ivs_prices_greeks(strikes)
 
+    df = pd.DataFrame(moneys, columns=['moneyness'])
 
+    df['delta_price'] = res1['delta'] * (oc2.future_price() - oc1.future_price())
+    df['gamma_price'] = (res1['gamma'] / 2.0) * ((oc2.future_price() - oc1.future_price())**2)
+    df['theta_price'] = res1['theta'] * (oc1.time_to_expiry() - oc2.time_to_expiry())
 
+    for i in range(len(oc1.iv_parameters())):
+        df[f'vol_{i}_price'] = res1['vega'] * res1[f'greek_{i}'] * (oc2.iv_parameters()[i] - oc1.iv_parameters()[i])
 
+    df['estimated_price_diff'] = df['delta_price'] + df['gamma_price'] + df['theta_price']
+    for i in range(len(oc1.iv_parameters())):
+        df['estimated_price_diff'] += df[f'vol_{i}_price']
+
+    df['actual_price_diff'] = res2['fit_price'] - res1['fit_price']
+    df['abs_pricing_error'] = df['actual_price_diff'] - df['estimated_price_diff']
+    df['delta_exposure'] = oc1.future_price() * res1['delta']
+    df['%_pe_delta_exposure'] = 100 * df['abs_pricing_error'] / df['delta_exposure'].abs()
+    df['%_pe_option_price'] = 100 * df['abs_pricing_error'] / res1['fit_price'].abs()
+
+    return df.set_index('moneyness')
 
 
 
