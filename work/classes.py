@@ -37,6 +37,7 @@ class OptionChain():
         self.iv_model = iv_model
         self.iv_model.fit(self)
         self.df['fit_iv'] = self.iv_model.get_fit_ivs(self.df['moneyness'])
+        return (self.df['mid_iv'] - self.df['fit_iv']).values
 
     def plot(self, ax):
         if self.iv_model is None:

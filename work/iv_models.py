@@ -49,20 +49,28 @@ def kernel_smoothening(option_chain, k_const=0.00000075, fit_column='mid_iv'):
     return(np.array(mid_iv_cap))
 
 
-class BasicMidIVPolynomial(BaseIVModel):
-    def __init__(self, degree=2, smoothening=None):
+class IVPolynomial(BaseIVModel):
+    def __init__(self, degree=2, smoothening=None, weighting=None):
         self.degree      = degree
         self.smoothening = smoothening
+        self.weighting   = weighting
 
     def fit(self, option_chain):
         if self.smoothening is None:
-            self.to_fit_vals = option_chain.df['mid_iv']
+            to_fit_vals = option_chain.df['mid_iv']
         elif self.smoothening == "kernel_smoothening":
-            self.to_fit_vals = kernel_smoothening(option_chain)
+            to_fit_vals = kernel_smoothening(option_chain)
         else:
-            assert False
+            raise NotImplementedError()
 
-        self.params = np.polyfit(option_chain.df['moneyness'], self.to_fit_vals, deg=self.degree)
+        if self.weighting is None:
+            weights = None
+        elif self.weighting == "inverse_spread":
+            weights = np.divide(1.0, option_chain.df['spread'])
+        else:
+            raise NotImplementedError()
+
+        self.params = np.polyfit(option_chain.df['moneyness'], to_fit_vals, deg=self.degree, w=weights)
 
     def get_fit_ivs(self, moneyness_arr):
         return np.poly1d(self.params)(moneyness_arr)
