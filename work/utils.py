@@ -3,6 +3,8 @@ import numpy as np
 import py_vollib_vectorized
 from datetime import datetime, timedelta
 import scipy
+import copy
+from collections import OrderedDict
 
 def create_market_state(BCAST_FILE, expiry_time, get_greeks=True, mf_lower = -0.15, mf_upper = 0.15, RESAMPLING = '30s'):
     '''
@@ -107,4 +109,36 @@ def get_all_greeks_and_prices(sdf):
     df['fit_price'] =  df.price_undiscounted.values*e_rt
     return df[['delta', 'gamma', 'theta',  'vega', 'fit_price']]
 
+def split_and_clean_errors(df):
+    d = OrderedDict()
+    d['OTM puts'] = (-0.15, 0.05)
+    d['ATM']      = (-0.05, 0.05)
+    d['OTM']      = ( 0.05, 0.15)
+
+    result = {'ALL' : []}
+    for k, vals in d.items():
+        errors = df[(df.index <= vals[1]) & (df.index >= vals[0])].values.flatten()
+        result[k] = errors[(errors >= np.quantile(errors, 0.025))
+                         & (errors <= np.quantile(errors, 0.975))]
+
+        result['ALL'] = np.append(result['ALL'], result[k])
+    return result
+
+def get_error_for_model(oc_pairs, model):
+    tickerwise_dfs = {}
+    for ticker, (oc1, oc2) in oc_pairs.items():
+        oc1.fit_iv_model(model)
+        oc2.fit_iv_model(copy.deepcopy(model))
+        tickerwise_dfs[ticker] = oc1.estimate_price_diff_df(oc2)
+
+    tickerwise_pe = pd.DataFrame(index=tickerwise_dfs[list(tickerwise_dfs.keys())[0]].index)
+#     pe_option_price   = pd.DataFrame(index=res_dfs[0].index)
+    for ticker, (oc1, oc2) in oc_pairs.items():
+        tickerwise_pe[ticker] = tickerwise_dfs[ticker]['%_pe_delta_exposure']
+#         pe_option_price[tname] = res_dfs[i]['%_pe_option_price']
+    aggregated_pe = split_and_clean_errors(tickerwise_pe)
+    return tickerwise_pe, aggregated_pe
+
+def get_errors_for_models(oc_pairs, models):
+    return [get_error_for_model(oc_pairs, model) for model in models]
 

@@ -11,82 +11,54 @@ class BaseIVModel():
     def get_params(self):
         return self.params
 
+    def fit(self):
+        raise NotImplementedError()
 
-class MidIV(BaseIVModel):
-    def __init__(self):
-        pass
-
-    def fit(self, option_chain):
-        self.params = option_chain.df['mid_iv'].values
-        self.iv_map = {}
-        self.ix_map = {}
-
-        for i, (ix, row) in enumerate(option_chain.df.iterrows()):
-            self.iv_map[row['moneyness'] ] = row['mid_iv']
-            self.ix_map[row['moneyness'] ] = i
-
-
-    def get_fit_ivs(self, moneyness_arr):
-        return [self.iv_map[moneyness] for moneyness in moneyness_arr]
+    def get_fit_ivs(self):
+        raise NotImplementedError()
 
     def get_greeks(self, moneyness_arr):
+        raise NotImplementedError()
 
-        df = pd.DataFrame(index=moneyness_arr)
-        for i in range(len(self.params)):
-            df[f'greek_{i}'] = (i == moneyness_arr.map(self.ix_map)).astype(float).values
-
-        return df
-
-class ModifiedMidIVPolynomial(BaseIVModel):
-    def __init__(self, degree=2):
-        self.degree = degree
-
+def kernel_smoothening(option_chain, k_const=0.00000075):
     def k_func(self, x, h_m):
         return np.exp(-1*(x**2)/(2*h_m))/(2*3.14)**(0.5)
 
-    def modified_mid_iv(self, option_chain, k_const = 0.00000075):
-        strike_vals = option_chain.df['strike'].values
-        moneyness_vals = option_chain.df['moneyness'].values
-        mid_iv_vals = option_chain.df['mid_iv'].values
+    strike_vals    = option_chain.df['strike'].values
+    moneyness_vals = option_chain.df['moneyness'].values
+    mid_iv_vals    = option_chain.df['mid_iv'].values
+    N_star         = len(strike_vals)
+    h_m            = k_const*(max(strike_vals)-min(strike_vals))/(N_star-1)
 
-        h_m = k_const*(max(strike_vals)-min(strike_vals))/(len(strike_vals)-1)
+    mid_iv_cap = []
+    for a in range(N_star):
 
-        mid_iv_cap = []
-        N_star = len(strike_vals)
-        for a in range(N_star):
-            
-            m_j = moneyness_vals[a]
-            
-            denom = 0.0
-            for b in range(N_star):
-                denom += self.k_func(m_j-moneyness_vals[b], h_m)
-            
-            actual_sigma = 0
-            for c in range(N_star):
-                numer = self.k_func(m_j-moneyness_vals[c], h_m)
-                actual_sigma += (numer/denom)*(mid_iv_vals[c])
-            
-            mid_iv_cap.append(actual_sigma)
+        m_j = moneyness_vals[a]
 
-        return(np.array(mid_iv_cap))
+        denom = 0.0
+        for b in range(N_star):
+            denom += self.k_func(m_j-moneyness_vals[b], h_m)
 
+        actual_sigma = 0
+        for c in range(N_star):
+            numer = self.k_func(m_j-moneyness_vals[c], h_m)
+            actual_sigma += (numer/denom)*(mid_iv_vals[c])
 
-    def fit(self, option_chain, k_const = 0.00000075):
-        self.params = np.polyfit(option_chain.df['moneyness'], self.modified_mid_iv(option_chain, k_const), deg=self.degree)
+        mid_iv_cap.append(actual_sigma)
 
-    def get_fit_ivs(self, moneyness_arr):
-        return np.poly1d(self.params)(moneyness_arr)
+    return(np.array(mid_iv_cap))
 
-    def get_greeks(self, moneyness_arr):
-        df = pd.DataFrame(index=moneyness_arr)
-        for i in range(len(self.params)):
-            df[f'greek_{i}'] = np.power(moneyness_arr.values, len(self.params) - 1 - i)
-
-        return df
 
 class BasicMidIVPolynomial(BaseIVModel):
-    def __init__(self, degree=2):
+    def __init__(self, degree=2, smoothening=None):
         self.degree = degree
+
+        if smoothening is None:
+            self.to_fit_vals = option_chain.df['mid_iv']
+        elif smoothening == "kernel_smoothening":
+            self.to_fit_vals = kernel_smoothening(option_chain)
+        else:
+            assert False
 
     def fit(self, option_chain):
         self.params = np.polyfit(option_chain.df['moneyness'], option_chain.df['mid_iv'], deg=self.degree)
