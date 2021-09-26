@@ -126,10 +126,14 @@ def split_and_clean_errors(df):
 
 def get_error_for_model(oc_pairs, model):
     tickerwise_dfs = {}
+    fit_errors = []
     for ticker, (oc1, oc2) in oc_pairs.items():
-        oc1.fit_iv_model(model)
-        oc2.fit_iv_model(copy.deepcopy(model))
+        fit_errors_1 = oc1.fit_iv_model(model)
+        fit_errors_2 = oc2.fit_iv_model(copy.deepcopy(model))
         tickerwise_dfs[ticker] = oc1.estimate_price_diff_df(oc2)
+
+        fit_errors.extend(fit_errors_1)
+        fit_errors.extend(fit_errors_2)
 
     tickerwise_pe = pd.DataFrame(index=tickerwise_dfs[list(tickerwise_dfs.keys())[0]].index)
 #     pe_option_price   = pd.DataFrame(index=res_dfs[0].index)
@@ -137,6 +141,8 @@ def get_error_for_model(oc_pairs, model):
         tickerwise_pe[ticker] = tickerwise_dfs[ticker]['%_pe_delta_exposure']
 #         pe_option_price[tname] = res_dfs[i]['%_pe_option_price']
     aggregated_pe = split_and_clean_errors(tickerwise_pe)
+    aggregated_pe['fit_errors'] = fit_errors
+
     return tickerwise_pe, aggregated_pe
 
 def get_errors_for_models(oc_pairs, models):
