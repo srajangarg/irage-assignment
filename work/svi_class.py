@@ -9,13 +9,15 @@ from scipy.optimize import minimize
 import numpy as np
 
 
-class svi_model:
-    def __init__(self, data, init_adc, init_msigma, tol):
+class SVIClass:
+    def __init__(self, data, init_adc, init_msigma, tolerance):
         
         self.init_msigma = init_msigma
         self.init_adc = init_adc
-        self.tol = tol
+        self.tolerance = tolerance
         self.data = data
+        self.calibrated_params = None
+        self.tte = 1.0
 
     def forward_price(self):
         
@@ -47,10 +49,10 @@ class svi_model:
             
             a, d, c = params
             error_sum = 0.0
-            xi = np.power(self.data['moneyness'],-1)
+            xi = -self.data['moneyness']
             y = (xi-m)/sigma
             z = np.sqrt(y**2+1)
-            error_sum = np.sum(np.array(a + d * y + c * z -
+            error_sum = np.mean(np.array(a + d * y + c * z -
                                         np.array(self.data['mid_iv'])**2*self.data.iloc[0]['time_to_expiry']) ** 2)
             return error_sum
         bnds = (
@@ -60,18 +62,18 @@ class svi_model:
             {'type': 'ineq', 'fun': lambda x: x[2]-abs(x[1])},
             {'type': 'ineq', 'fun': lambda x: 4*sigma-x[2]-abs(x[1])}
         )
-        inner_res = minimize(inner_fun, adc_0, method='SLSQP', tol=1e-6)
+        inner_res = minimize(inner_fun, adc_0, method='SLSQP', tol=self.tolerance)
         
         a_star, d_star, c_star = inner_res.x
         self._a_star, self._d_star, self._c_star = inner_res.x
 
-        sum = 0.0
-        xi = np.power(self.data['moneyness'],-1)
+        error = 0.0
+        xi = -self.data['moneyness']
         y = (xi-m)/sigma
         z = np.sqrt(y**2+1)
-        sum = np.sum(np.array(a_star + d_star * y + c_star *
+        error = np.mean(np.array(a_star + d_star * y + c_star *
                               z - np.array(self.data['mid_iv'])**2*self.data.iloc[0]['time_to_expiry']) ** 2)
-        return sum
+        return error
 
     def optimization(self):
         
@@ -80,14 +82,14 @@ class svi_model:
         """
 
         outter_res = minimize(
-            self.outter_function, self.init_msigma, method='Nelder-Mead', tol=self.tol)
+            self.outter_function, self.init_msigma, method='Nelder-Mead', tol=self.tolerance)
 
         m_star, sigma_star = outter_res.x
         self._m_star, self._sigma_star = outter_res.x
-        #obj = outter_res.fun
-        calibrated_params = [self._a_star, self._d_star,
+        # print(outter_res.fun)
+        self.calibrated_params = [self._a_star, self._d_star,
                              self._c_star, m_star, sigma_star]
-        return calibrated_params
+        return self.calibrated_params
 
     def svi_vol(self):
        
@@ -97,7 +99,7 @@ class svi_model:
 
         #f = self.forward_price()
         self.optimization()
-        xi = np.power(self.data['moneyness'],-1)
+        xi = -self.data['moneyness']
         y = (xi-self._m_star)/self._sigma_star
         z = np.sqrt(y**2+1)
        

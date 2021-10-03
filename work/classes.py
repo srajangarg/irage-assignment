@@ -44,7 +44,7 @@ class OptionChain():
             print("no IV model fit")
             return
         # ax.plot(self.df['moneyness'], self.df['bid_iv'])
-        # ax.plot(self.df['moneyness'], self.df['ask_iv'])
+        ax.plot(self.df['moneyness'], self.df['mid_iv'])
         ax.plot(self.df['moneyness'], self.df['fit_iv'])
 
 
