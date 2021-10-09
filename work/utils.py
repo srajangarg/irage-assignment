@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import scipy
 import copy
 from collections import OrderedDict
+from iv_models import SVIModel
 
 def create_market_state(BCAST_FILE, expiry_time, get_greeks=True, mf_lower = -0.15, mf_upper = 0.15, RESAMPLING = '30s'):
     '''
@@ -129,7 +130,13 @@ def get_error_for_model(oc_pairs, model):
     fit_errors = []
     for ticker, (oc1, oc2) in oc_pairs.items():
         fit_errors_1 = oc1.fit_iv_model(model)
-        fit_errors_2 = oc2.fit_iv_model(copy.deepcopy(model))
+
+        model_copy   = copy.deepcopy(model)
+
+        if isinstance(model, SVIModel):
+            fit_errors_2 = oc2.fit_iv_model(model_copy, init_guess_calibrated_params=model.calibrated_params)
+        else:
+            fit_errors_2 = oc2.fit_iv_model(model_copy)
         tickerwise_dfs[ticker] = oc1.estimate_price_diff_df(oc2)
 
         fit_errors.extend(fit_errors_1)

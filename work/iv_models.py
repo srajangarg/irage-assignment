@@ -67,6 +67,8 @@ class IVPolynomial(BaseIVModel):
             weights = None
         elif self.weighting == "inverse_spread":
             weights = np.divide(1.0, option_chain.df['spread'])
+        elif self.weighting == "vega":
+            weights = option_chain.df['vega']
         else:
             raise NotImplementedError()
 
@@ -83,9 +85,14 @@ class IVPolynomial(BaseIVModel):
         return df
 
 class SVIModel(BaseIVModel):
-    def __init__(self, tolerance=1e-7):
+    def __init__(self, tolerance=1e-8, init_guess_calibrated_params=None):
+
         self.init_msigma = np.array([0.1,0.1])
-        self.init_adc = np.array([0.03,0.33, 0.07])
+        self.init_adc    = np.array([0.03,0.33, 0.07])
+        if init_guess_calibrated_params:
+            self.init_msigma = np.array([init_guess_calibrated_params[3], init_guess_calibrated_params[4]])
+            self.init_adc    = np.array([init_guess_calibrated_params[0], init_guess_calibrated_params[1], init_guess_calibrated_params[2]])
+
         self.tolerance = tolerance
         self.svi_model_object = None
         self.model_fitted_vol = None
@@ -111,9 +118,9 @@ class SVIModel(BaseIVModel):
 
     def get_fit_ivs(self, moneyness_arr):
         xi = -moneyness_arr
-        y = (xi-self.calibrated_params[3])/self.calibrated_params[4]
+        y = (xi-self.params[3])/self.params[4]
         z = np.sqrt(y**2+1)
-        omega = np.array(self.calibrated_params[0] + self.calibrated_params[1] * y + self.calibrated_params[2] * z)
+        omega = np.array(self.params[0] + (self.params[2] * self.params[1] * self.params[4]) * y + (self.params[1] * self.params[4]) * z)
         sigma = np.sqrt(omega/self.time_to_expiry)
 
         return sigma

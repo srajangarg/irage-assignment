@@ -29,7 +29,15 @@ class Ticker():
 
 class OptionChain():
     def __init__(self, df):
-        self.df       = df.copy()
+        self.df                   = df.copy()
+        self.df['futPrice']       = self.future_price()
+        self.df['moneyness']      = np.log(self.df.futPrice/self.df.strike)
+        self.df['instrument']     = np.where(self.df['moneyness'] < 0, 'c', 'p')
+        self.df['time_to_expiry'] = self.time_to_expiry()
+        self.df['fit_iv']         = self.df['mid_iv']
+        regular_greeks_and_price = get_all_greeks_and_prices(self.df)
+
+        self.df = pd.concat([self.df, regular_greeks_and_price], axis=1)
         # self.df contains all the "known" information including askPrice_1, ask_iv,
         # bidPrice_1, bid_iv, spread, spread_iv, futPrice, moneyness, time_to_expiry, instrument
 
@@ -73,8 +81,11 @@ class OptionChain():
         return df
 
 
-    def estimate_price_diff_df(self, other, max_moneyness=0.15):
-        moneys  = np.linspace(-max_moneyness, max_moneyness, num=int(200*max_moneyness+1))
+    def estimate_price_diff_df(self, other, max_moneyness=0.15, moneys=None):
+        if moneys is None:
+            moneys  = np.linspace(-max_moneyness, max_moneyness, num=int(200*max_moneyness+1))
+        else:
+            moneys = np.array(moneys)
         strikes = self.future_price() * np.exp(moneys)
         res1    = self.ivs_prices_greeks(strikes)
         res2    = other.ivs_prices_greeks(strikes)
@@ -97,7 +108,7 @@ class OptionChain():
         df['abs_pricing_error'] = df['actual_price_diff'] - df['estimated_price_diff']
         df['delta_exposure'] = self.future_price() * res1['delta']
         df['%_pe_delta_exposure'] = 100 * df['abs_pricing_error'] / df['delta_exposure'].abs()
-        df['%_pe_option_price'] = 100 * df['abs_pricing_error'] / res1['fit_price'].abs()
+        # df['%_pe_option_price'] = 100 * df['abs_pricing_error'] / res1['fit_price'].abs()
 
         return df.set_index('moneyness')
 
